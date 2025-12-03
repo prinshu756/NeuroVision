@@ -317,10 +317,17 @@ def prediction(test, model, model_seg, use_tta=False):
     return image_id, mask, has_mask
 
 
-def predict_with_tta_classification(model, img):
+def predict_with_tta_classification(model, img, strategy='max'):
     """
     Test Time Augmentation for classification.
-    Averages predictions from multiple augmented versions.
+    
+    Args:
+        model: Classification model
+        img: Preprocessed image
+        strategy: 'mean' for average, 'max' for maximum confidence
+    
+    Returns:
+        Prediction with higher confidence
     """
     predictions = []
     
@@ -335,8 +342,19 @@ def predict_with_tta_classification(model, img):
     img_flip_v = np.flip(img, axis=1)
     predictions.append(model.predict(img_flip_v, verbose=0))
     
-    # Average predictions
-    return np.mean(predictions, axis=0)
+    if strategy == 'max':
+        # Return prediction with highest confidence for detected class
+        max_conf = 0
+        best_pred = predictions[0]
+        for pred in predictions:
+            conf = np.max(pred)
+            if conf > max_conf:
+                max_conf = conf
+                best_pred = pred
+        return best_pred
+    else:
+        # Average predictions
+        return np.mean(predictions, axis=0)
 
 
 def predict_with_tta_segmentation(model, img):
