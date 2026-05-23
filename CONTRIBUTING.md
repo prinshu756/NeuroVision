@@ -89,8 +89,26 @@ source venv/bin/activate
 Install required dependencies:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-web.txt
 ```
+
+### Environment variables
+
+Copy the example file and add your credentials (never commit `.env`):
+
+```bash
+cp .env.example .env
+```
+
+On Windows (Command Prompt): `copy .env.example .env`
+
+Edit `.env` and set at least:
+
+- `FLASK_SECRET_KEY` — a long random string for Flask sessions
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — from [Cloudinary](https://cloudinary.com/)
+- `MONGO_URI` (optional) — MongoDB Atlas connection string; omit to use local JSON storage
+
+The app validates required variables at startup and exits with a clear error if any are missing.
 
 ---
 

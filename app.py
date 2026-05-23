@@ -12,12 +12,37 @@ Features:
 - Detailed diagnostic reports with share functionality
 """
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+REQUIRED_ENV_VARS = [
+    'FLASK_SECRET_KEY',
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET',
+]
+
+
+def validate_required_env():
+    """Fail fast if required environment variables are missing."""
+    missing = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
+    if missing:
+        raise EnvironmentError(
+            'Missing required environment variables: '
+            + ', '.join(missing)
+            + '. Copy .env.example to .env and set your values.'
+        )
+
+
+validate_required_env()
+
 from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for
 from flask_cors import CORS
 import tensorflow as tf
 import numpy as np
 import cv2
-import os
 import base64
 from io import BytesIO
 from PIL import Image
@@ -42,7 +67,7 @@ from utilities import (
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
-app.secret_key = 'neuroscan-ai-secret-key-2024'  # Change in production
+app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
 # Configuration
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -53,21 +78,19 @@ app.config['USE_TTA'] = True  # Enable Test Time Augmentation for higher accurac
 app.config['USE_ENSEMBLE'] = True  # Enable ensemble predictions
 app.config['CONFIDENCE_THRESHOLD'] = 0.5  # Minimum confidence for tumor detection
 
-# MongoDB Configuration - Using MongoDB Atlas (Cloud)
-# You can get a free MongoDB Atlas cluster at https://www.mongodb.com/atlas
-# Replace with your MongoDB Atlas connection string
-MONGO_URI = os.environ.get('MONGO_URI', 'mongodb+srv://neuroscan:neuroscan123@cluster0.mongodb.net/?retryWrites=true&w=majority')
-MONGO_DB_NAME = os.environ.get('MONGO_DB_NAME', 'neuroscan_db')
+# MongoDB Configuration (optional — falls back to local JSON storage)
+MONGO_URI = os.getenv('MONGO_URI')
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'neuroscan_db')
 
 # Flag to track if MongoDB is available
 mongodb_available = False
 
 # Cloudinary Configuration
 cloudinary.config(
-    cloud_name = "deifdzc8x",
-    api_key = "679338212113732",
-    api_secret = "loNWIjTUSAJ94ICsBO5b1TPjkm0",
-    secure = True
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET'),
+    secure=True,
 )
 
 # Create required directories
@@ -143,7 +166,12 @@ def init_mongodb():
         return mongodb_available
     
     mongodb_init_attempted = True
-    
+
+    if not MONGO_URI:
+        mongodb_available = False
+        print("⚠ MONGO_URI not set — using JSON file storage fallback")
+        return False
+
     try:
         # Try to connect to MongoDB with a short timeout
         mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
@@ -1456,7 +1484,7 @@ if __name__ == '__main__':
         print("⚠ Running without database - authentication features disabled")
     
     # Verify Cloudinary configuration
-    print("✓ Cloudinary configured (cloud: deifdzc8x)")
+    print(f"✓ Cloudinary configured (cloud: {os.getenv('CLOUDINARY_CLOUD_NAME')})")
     
     # Load models
     if load_models():

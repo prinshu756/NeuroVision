@@ -190,9 +190,32 @@ UFC = δ × Focal_Tversky + (1-δ) × Focal_CE
 git clone https://github.com/Brijeshthummar02/TumorVision-2StageAI.git
 cd TumorVision-2StageAI
 
+# Create and activate a virtual environment (recommended)
+python -m venv venv
+# Windows: venv\Scripts\activate
+# Linux/macOS: source venv/bin/activate
+
 # Install dependencies
 pip install -r requirements-web.txt
 ```
+
+### Environment Configuration
+
+Copy the example environment file and add your credentials:
+
+```bash
+cp .env.example .env
+```
+
+On Windows (Command Prompt): `copy .env.example .env`
+
+Edit `.env` and set at least:
+
+- `FLASK_SECRET_KEY` — a long random string for Flask sessions
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — from [Cloudinary](https://cloudinary.com/)
+- `MONGO_URI` (optional) — MongoDB Atlas connection string; omit to use local JSON storage
+
+Never commit your `.env` file.
 
 ### Run Web App
 
