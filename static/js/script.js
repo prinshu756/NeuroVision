@@ -6,6 +6,22 @@ const API_BASE_URL = 'http://localhost:5000';
 // ==================== State Management ====================
 let uploadedFile = null;
 let currentResults = null;
+let isAnalyzing = false;
+let loadingProgressInterval = null;
+const analyzeButtonIdleHTML = `
+    <span class="btn-content">
+        <i class="fas fa-microscope"></i>
+        <span>Begin Analysis</span>
+    </span>
+    <span class="btn-shine"></span>
+`;
+const analyzeButtonLoadingHTML = `
+    <span class="btn-content">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>Analyzing...</span>
+    </span>
+    <span class="btn-shine"></span>
+`;
 
 // ==================== DOM Elements ====================
 const elements = {
@@ -196,6 +212,11 @@ function handleDrop(e) {
 }
 
 function validateAndPreviewFile(file) {
+    if (isAnalyzing) {
+        showNotification('Analysis is already in progress. Please wait for it to finish.', 'info');
+        return;
+    }
+
     // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff'];
     const validExtensions = ['.jpg', '.jpeg', '.png', '.tif', '.tiff'];
@@ -227,7 +248,7 @@ function previewImage(file) {
         elements.previewImage.src = e.target.result;
         elements.uploadArea.style.display = 'none';
         elements.imagePreview.style.display = 'block';
-        elements.analyzeBtn.disabled = false;
+        setAnalyzeControlsLoading(false);
         
         // Animate preview
         elements.imagePreview.classList.add('fade-in');
@@ -241,6 +262,11 @@ function previewImage(file) {
 
 function handleRemoveImage(e) {
     e.stopPropagation();
+
+    if (isAnalyzing) {
+        showNotification('Please wait until the current analysis is complete.', 'info');
+        return;
+    }
     
     uploadedFile = null;
     elements.fileInput.value = '';
@@ -255,10 +281,18 @@ function handleRemoveImage(e) {
 
 // ==================== Analysis ====================
 async function handleAnalyze() {
+    if (isAnalyzing) {
+        showNotification('Analysis is already in progress. Please wait for the result.', 'info');
+        return;
+    }
+
     if (!uploadedFile) {
         showNotification('Please upload an image first', 'error');
         return;
     }
+
+    isAnalyzing = true;
+    setAnalyzeControlsLoading(true);
     
     // Show loading state
     showLoadingState();
@@ -285,12 +319,29 @@ async function handleAnalyze() {
         // Show results
         setTimeout(() => {
             showResults(results);
+            isAnalyzing = false;
         }, 1000);
         
     } catch (error) {
         console.error('Analysis error:', error);
+        isAnalyzing = false;
         hideLoadingState();
         showNotification(error.message || 'Failed to analyze image. Please try again.', 'error');
+    }
+}
+
+function setAnalyzeControlsLoading(isLoading) {
+    if (elements.analyzeBtn) {
+        elements.analyzeBtn.disabled = isLoading || !uploadedFile;
+        elements.analyzeBtn.setAttribute('aria-busy', String(isLoading));
+        elements.analyzeBtn.innerHTML = isLoading
+            ? analyzeButtonLoadingHTML
+            : analyzeButtonIdleHTML;
+    }
+
+    if (elements.removeBtn) {
+        elements.removeBtn.disabled = isLoading;
+        elements.removeBtn.setAttribute('aria-disabled', String(isLoading));
     }
 }
 
@@ -316,7 +367,11 @@ function showLoadingState() {
     
     // Animate progress
     let progress = 0;
-    const interval = setInterval(() => {
+    if (loadingProgressInterval) {
+        clearInterval(loadingProgressInterval);
+    }
+
+    loadingProgressInterval = setInterval(() => {
         progress += 2;
         const currentProgress = Math.min(progress, 90);
         
@@ -345,7 +400,8 @@ function showLoadingState() {
         }
         
         if (progress >= 90) {
-            clearInterval(interval);
+            clearInterval(loadingProgressInterval);
+            loadingProgressInterval = null;
         }
     }, 50);
 }
@@ -450,9 +506,15 @@ function stopDoctorReviewAnimation() {
 function hideLoadingState() {
     // Stop doctor review animation
     stopDoctorReviewAnimation();
+
+    if (loadingProgressInterval) {
+        clearInterval(loadingProgressInterval);
+        loadingProgressInterval = null;
+    }
     
     elements.uploadCard.style.display = 'block';
     elements.loadingCard.style.display = 'none';
+    setAnalyzeControlsLoading(false);
     
     // Reset loading state
     if (elements.progressFill) {
@@ -479,6 +541,11 @@ function hideLoadingState() {
 function showResults(results) {
     // Stop doctor animation
     stopDoctorReviewAnimation();
+
+    if (loadingProgressInterval) {
+        clearInterval(loadingProgressInterval);
+        loadingProgressInterval = null;
+    }
     
     // Complete progress
     if (elements.progressFill) {
@@ -937,6 +1004,9 @@ async function saveToHistory() {
 }
 
 function handleNewScan() {
+    isAnalyzing = false;
+    setAnalyzeControlsLoading(false);
+
     // Reset state
     handleRemoveImage({ stopPropagation: () => {} });
     
